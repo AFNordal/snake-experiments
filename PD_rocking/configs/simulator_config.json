@@ -1,0 +1,14 @@
+{
+    "integrator_type": "RK4",
+    "timestep": 0.005,
+    "floor_friction": 0.0,
+    "headless": false,
+    "visual_options": {
+        "curve_color": [1, 0, 1, 1],
+        "show_contact_points": true,
+        "show_contact_force": false,
+        "show_actuators": false,
+        "show_joints": false,
+        "show_center_of_mass": false
+    }
+}

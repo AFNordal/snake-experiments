@@ -1,0 +1,15 @@
+{
+    "n_links": 3,
+    "link_mass_kg": 1,
+    "link_length_m": 4,
+    "link_radius_m": 0.2,
+    "max_torque_nm": 100,
+    "friction": 0.0,
+    "joint_range_deg": 110,
+    "joint_damping": 0.05,
+    "joint_armature": 0.01,
+    "solref": [0.02, 2.0],
+    "solimp": [0.9, 0.98, 0.001, 0.5, 2.0],
+    "color": [0.8, 0.4, 0, 1],
+    "initial_pose": []
+}
