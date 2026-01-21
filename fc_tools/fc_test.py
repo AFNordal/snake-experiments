@@ -1,7 +1,9 @@
 import numpy as np
+from scipy.optimize import linprog
+import cvxpy as cp
 
 
-def get_intersections(P: np.ndarray, N: np.ndarray, tol: float = 1e-10):
+def _get_intersections(P: np.ndarray, N: np.ndarray, tol: float = 1e-10):
     n = P.shape[1]
 
     # Lists to store results
@@ -68,18 +70,89 @@ def get_intersections(P: np.ndarray, N: np.ndarray, tol: float = 1e-10):
     return intersections, indices, parallel_vectors, parallel_groups
 
 
-def FCM(points: np.ndarray, normals: np.ndarray):
+def grasp_matrix(P, N):
+    p0 = np.array([0, 0]) # Arbitrary?
+    Gi_list = []
+    nc = P.shape[1]
+    for i in range(nc):
+        theta = np.arctan2(N[1, i], N[0, i])
+        Ri = np.array(
+            [
+                [np.cos(theta), -np.sin(theta), 0],
+                [np.sin(theta), np.cos(theta), 0],
+                [0, 0, 1],
+            ]
+        )
+        r = P[:, i] - p0
+        Pi = np.array(
+            [
+                [1, 0, 0],
+                [0, 1, 0],
+                [-r[1], r[0], 1],
+            ]
+        )
+        Gi_list.append(Pi @ Ri)
+    G_ = np.hstack(Gi_list)
+    H = np.kron(np.eye(nc), np.array([1, 0, 0]))
+    G = G_ @ H.T
+    return G
+
+
+def FC_G(P, N):
+    G = grasp_matrix(P, N)
+    m, n = G.shape
+
+    # Objective doesn't matter (feasibility problem)
+    c = np.zeros(n)
+
+    # Equality constraints: Gy = 0 and sum(y) = 1
+    A_eq = np.vstack([G, np.ones(n)])
+    b_eq = np.zeros(m + 1)
+    b_eq[-1] = 1
+
+    # y >= 0
+    bounds = [(0, None)] * n
+
+    res = linprog(
+        c,
+        A_eq=A_eq,
+        b_eq=b_eq,
+        bounds=bounds,
+        method="highs"
+    )
+
+    return res.success#, res.x if res.success else None
+
+def FCM2(P, N):
+    G = grasp_matrix(P, N)
+    m, n = G.shape
+
+    y = cp.Variable(n)
+    t = cp.Variable()
+
+    constraints = [
+        G @ y == 0,
+        y >= t,
+        cp.norm(y, 2) <= 1
+    ]
+
+    problem = cp.Problem(cp.Maximize(t), constraints)
+    problem.solve()
+
+    return t.value, y.value
+
+def FCM1(points: np.ndarray, normals: np.ndarray):
     assert points.shape == normals.shape
     P = points
     N = normals / np.linalg.norm(normals, axis=0)
     n = P.shape[1]
 
-    intersections, indices, parallel_dirs, parallel_groups = get_intersections(P, N)
-    # pole_twist_indices = []
+    intersections, indices, parallel_dirs, parallel_groups = _get_intersections(P, N)
+
     min_PTI = np.inf
     for i in range(intersections.shape[1]):
-        S_min = 0
-        S_max = 0
+        S_min = np.inf
+        S_max = -np.inf
         for j in range(n):
             if j not in indices[i]:
                 r = P[:, j] - intersections[:, i]
@@ -127,7 +200,7 @@ def FC_plot(points: np.ndarray, normals: np.ndarray):
         "deeppink",
         "gold",
     )
-    ix, _, _, parallel_groups = get_intersections(P, N)
+    ix, _, _, parallel_groups = _get_intersections(P, N)
 
     fig, ax = plt.subplots()
     for i in range(P.shape[1]):
@@ -155,55 +228,68 @@ def FC_plot(points: np.ndarray, normals: np.ndarray):
     plt.show()
 
 
-def FC_animation(points, normals):
+def FC_animation(points, normals, FCM, t0=0, t1=10, steps=500):
     from matplotlib import pyplot as plt
-    from matplotlib import animation as animation
+    from matplotlib.widgets import Slider
     import matplotlib
 
     matplotlib.use("WebAgg")
 
-    P = points(0)
-    N = normals(0) / np.linalg.norm(normals(0), axis=0)
-
-    ix, _, _, _ = get_intersections(P, N)
+    T = np.linspace(t0, t1, steps)
+    Ps, Ns, intersections, FCMs = [], [], [], []
+    for t in T:
+        P = points(t)
+        N = normals(t)
+        N = N / np.linalg.norm(N, axis=0)
+        ix, _, _, _ = _get_intersections(P, N)
+        Ps.append(P)
+        Ns.append(N)
+        intersections.append(ix)
+        FCMs.append(FCM(P, N))
 
     contact_lines = []
     contact_arrows = []
 
-    fig, (fcm_ax, ax) = plt.subplots(2, 1, height_ratios=(1, 4))
+    fig, (FCM_ax, diagram_ax, slider_ax) = plt.subplots(3, 1, height_ratios=(2, 8, 1))
     for i in range(P.shape[1]):
-        contact_lines.append(ax.axline(P[:, i], P[:, i] + N[:, i], color="k"))
+        contact_lines.append(diagram_ax.axline(Ps[0][:, i], Ps[0][:, i] + Ns[0][:, i], color="k"))
         contact_arrows.append(
-            ax.annotate(
+            diagram_ax.annotate(
                 "",
-                xytext=P[:, i],
-                xy=P[:, i] + N[:, i],
+                xytext=Ps[0][:, i],
+                xy=Ps[0][:, i] + Ns[0][:, i],
                 arrowprops=dict(arrowstyle="->", color="m"),
             )
         )
-    contact_points = ax.scatter(P[0, :], P[1, :], color="b")
-    intersection_points = ax.scatter(ix[0, :], ix[1, :], color="r")
-    ax.set_aspect("equal")
-    fcm_vals = [FCM(P, N)]
-    fcm_times = [0]
+    contact_points = diagram_ax.scatter(Ps[0][0, :], Ps[0][1, :], color="b")
+    intersection_points = diagram_ax.scatter(
+        intersections[0][0, :], intersections[0][1, :], color="r"
+    )
+    diagram_ax.set_aspect("equal")
 
-    fcm_plot = fcm_ax.plot(fcm_times, fcm_vals)[0]
-    fcm_ax.set_xlim(0, 314)
-    fcm_ax.set_ylim(-0.2, 0.2)
-    
-    def update(frame):
-        P = points(frame)
-        N = normals(frame) / np.linalg.norm(normals(frame), axis=0)
-        
-        if len(fcm_times) > frame + 10:
-            fcm_vals.clear()
-            fcm_times.clear()
-        fcm_vals.append(FCM(P, N))
-        fcm_times.append(frame)
-        fcm_plot.set_xdata(fcm_times)
-        fcm_plot.set_ydata(fcm_vals)
-        ix, _, _, _ = get_intersections(P, N)
-        intersection_points.set_offsets(ix.T)
+    FCM_plot = FCM_ax.plot(T, FCMs)[0]
+    FCM_timeline = FCM_ax.axvline(t0, color="r")
+
+    t_slider = Slider(
+        ax=slider_ax,
+        label="t [s]",
+        valmin=t0,
+        valmax=t1,
+        valinit=t0,
+    )
+
+    def update(t):
+        idx = min(steps - 1, int((t - t0) / (t1 - t0) * steps))
+        P = Ps[idx]
+        N = Ns[idx]
+        # print(grasp_matrix(P, N))
+        fcm2, y = FCM2(P, N)
+        print(f"FC_G: {int(FC_G(P, N))}, FCM1: {FCM1(P, N):.4f}, FCM2: {fcm2:.4f}")
+        print(list(y))
+        print(FCM1(P, N))
+        intersection_points.set_offsets(intersections[idx].T)
+        contact_points.set_offsets(P.T)
+        FCM_timeline.set_xdata((t, t))
         for i in range(P.shape[1]):
             l = contact_lines[i]
             l.set_xy1(P[:, i])
@@ -212,9 +298,7 @@ def FC_animation(points, normals):
             a.xy = P[:, i] + N[:, i]
             a.set_position(P[:, i])
 
-
-    anim = animation.FuncAnimation(fig, update, 314, interval=100)
-    anim.save(filename="./fcm1.mp4", writer="ffmpeg")
+    t_slider.on_changed(update)
     plt.show()
 
 
@@ -227,12 +311,10 @@ if __name__ == "__main__":
         x = 1.5 * np.sin(t)
         phi1 = -np.asin(2 / np.sqrt(8 + 4 * x + x**2))
         phi2 = -np.asin(2 / np.sqrt(8 - 4 * x + x**2))
-        return np.array(
-            [[-np.sin(phi1), 0, 0, np.sin(phi2)], [-np.cos(phi1), 1, 1, -np.cos(phi2)]]
-        )
+        return np.array([[-np.sin(phi1), 0, 0, np.sin(phi2)], [-np.cos(phi1), 1, 1, -np.cos(phi2)]])
 
     def rocking_points(frame: int):
-        return np.array([[-4, -1.5, 1.5, 4], [-2, 0, 0, -2]])
+        return np.array([[-4, -1.5, 1.5, 4], [-2, 0, 0, -2 + frame * 0.01]])
 
     root_dir = pathlib.Path(__file__).parent.resolve()
     # config_root = root_dir / "configs/"
@@ -240,6 +322,5 @@ if __name__ == "__main__":
         path_description = json.load(f)
     P = np.column_stack([c["point"] for c in path_description["contacts"]])
     N = np.column_stack([c["normal"] for c in path_description["contacts"]])
-    # FCM(P, N)
-    FC_animation(rocking_points, rocking_normals)
+    FC_animation(rocking_points, rocking_normals, FCM1)
     # FC_plot(P, N)
