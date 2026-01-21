@@ -1,7 +1,9 @@
 {
     "integrator_type": "RK4",
-    "timestep": 0.005,
+    "timestep": 0.001,
     "floor_friction": 0.0,
+    "solref": [0.02, 1.0],
+    "solimp": [0, 0.95, 0.005, 0.9, 2.0],
     "headless": false,
     "visual_options": {
         "curve_color": [1, 0, 1, 1],

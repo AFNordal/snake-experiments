@@ -308,3 +308,15 @@ if __name__ == "__main__":
         return np.array([[-4, -1.5, 1.5, 4], [-2, 0, 0, -2 + frame * 0.01]])
 
     FC_animation(rocking_points, rocking_normals, t0=0, t1=40)
+
+    # import pathlib
+    # import json
+
+    # root_dir = pathlib.Path(__file__).parent.resolve()
+    # with open(root_dir / "path_description.json") as f:
+    #     path_description = json.load(f)
+    # P = np.column_stack([c["point"] for c in path_description["contacts"]])
+    # N = np.column_stack([c["normal"] for c in path_description["contacts"]])
+
+    # FC_plot(P, N)
+    # print(FCM1(P, N))

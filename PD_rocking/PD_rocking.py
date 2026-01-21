@@ -26,7 +26,6 @@ obstacle_centers = contacts_to_obstacle_centers(
 )
 for c in obstacle_centers:
     obstacles_description["obstacles"].append({"position": c})
-    print(c)
 
 # Initialize snake on path
 pose = [-2 - 2 * np.sqrt(2), -2 * np.sqrt(2), np.pi / 4, -np.pi / 4, -np.pi / 4]
@@ -34,13 +33,13 @@ snake_description["initial_pose"] = pose
 
 
 def rocking_references(t: float):
-    x = 0.2*np.sin(t / 10)
-    phi1 = -np.asin(2 / np.sqrt(8 + 4*x + x**2))
-    phi2 = -np.asin(2 / np.sqrt(8 - 4*x + x**2))
+    x = 0.2*np.sin(t/2)
+    phi1 = -np.asin(2 / np.sqrt(8 + 4*x + x**2))*1.001
+    phi2 = -np.asin(2 / np.sqrt(8 - 4*x + x**2))*0.999
     return np.array([phi1, phi2])
 
 
-controller = PIDController(2000, 0, 10, snake_description["n_links"] - 1, 0)
+controller = PIDController(50000, 0, 500, snake_description["n_links"] - 1, 0)
 simulator = Simulator(simulator_config, snake_description, obstacles_description)
 # simulator.set_display_curve(path.curve, z=0.1)
 sim_duration = 50.0  # seconds
@@ -48,9 +47,11 @@ dt = simulator.dt
 for step in range(int(sim_duration / dt)):
     # pose = path.to_snake_pose(max(0, step * dt / 15 - 0.1), unit="rad")
     phi_r = rocking_references(step*dt)
+    # phi_r = rocking_references(min(15, step*dt))
     controller.set_reference(phi_r)
     torques = controller.tick(simulator.get_joint_angles(), dt)
-    print(controller.prev_error, torques)
+    # print(f"{max(controller.prev_error):>8.5f}, {max(torques):>8.5f}")
+    print(simulator.get_n_contacts())
     simulator.step(torques)
     if simulator.should_close():
         break
