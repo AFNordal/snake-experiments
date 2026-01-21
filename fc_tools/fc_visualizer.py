@@ -44,15 +44,8 @@ def _get_intersections(P: np.ndarray, N: np.ndarray, tol: float = 1e-10):
                 t = np.linalg.solve(A, b)
                 intersection = p1 + t[0] * n1
 
-                # Check if coincides with other intersection
-                for k, other in enumerate(intersection_pts):
-                    if np.linalg.norm(other - intersection) < tol:
-                        intersection_indices[k].add(i)
-                        intersection_indices[k].add(j)
-                        break
-                else:
-                    intersection_pts.append(intersection)
-                    intersection_indices.append(set((i, j)))
+                intersection_pts.append(intersection)
+                intersection_indices.append(set((i, j)))
 
     # Convert to ndarray
     if intersection_pts:
@@ -121,7 +114,7 @@ def FC_G(P, N):
         method="highs"
     )
 
-    return res.success#, res.x if res.success else None
+    return res.success
 
 def FCM2(P, N):
     G = grasp_matrix(P, N)
@@ -139,7 +132,7 @@ def FCM2(P, N):
     problem = cp.Problem(cp.Maximize(t), constraints)
     problem.solve()
 
-    return t.value, y.value
+    return t.value
 
 def FCM1(points: np.ndarray, normals: np.ndarray):
     assert points.shape == normals.shape
@@ -228,7 +221,7 @@ def FC_plot(points: np.ndarray, normals: np.ndarray):
     plt.show()
 
 
-def FC_animation(points, normals, FCM, t0=0, t1=10, steps=500):
+def FC_animation(points, normals, t0=0, t1=10, steps=500):
     from matplotlib import pyplot as plt
     from matplotlib.widgets import Slider
     import matplotlib
@@ -236,7 +229,8 @@ def FC_animation(points, normals, FCM, t0=0, t1=10, steps=500):
     matplotlib.use("WebAgg")
 
     T = np.linspace(t0, t1, steps)
-    Ps, Ns, intersections, FCMs = [], [], [], []
+    Ps, Ns, intersections = [], [], []
+    FCMs = [[], []]
     for t in T:
         P = points(t)
         N = normals(t)
@@ -245,7 +239,8 @@ def FC_animation(points, normals, FCM, t0=0, t1=10, steps=500):
         Ps.append(P)
         Ns.append(N)
         intersections.append(ix)
-        FCMs.append(FCM(P, N))
+        FCMs[0].append(FCM1(P, N))
+        FCMs[1].append(FCM2(P, N))
 
     contact_lines = []
     contact_arrows = []
@@ -266,8 +261,9 @@ def FC_animation(points, normals, FCM, t0=0, t1=10, steps=500):
         intersections[0][0, :], intersections[0][1, :], color="r"
     )
     diagram_ax.set_aspect("equal")
-
-    FCM_plot = FCM_ax.plot(T, FCMs)[0]
+    FCM_ax.plot(T, FCMs[0], label="FCM1")
+    FCM_ax.plot(T, FCMs[1], label="FCM2")
+    FCM_ax.legend(loc="right")
     FCM_timeline = FCM_ax.axvline(t0, color="r")
 
     t_slider = Slider(
@@ -282,11 +278,8 @@ def FC_animation(points, normals, FCM, t0=0, t1=10, steps=500):
         idx = min(steps - 1, int((t - t0) / (t1 - t0) * steps))
         P = Ps[idx]
         N = Ns[idx]
-        # print(grasp_matrix(P, N))
-        fcm2, y = FCM2(P, N)
-        print(f"FC_G: {int(FC_G(P, N))}, FCM1: {FCM1(P, N):.4f}, FCM2: {fcm2:.4f}")
-        print(list(y))
-        print(FCM1(P, N))
+        
+        print(f"FC_G: {int(FC_G(P, N))}, FCM1: {FCM1(P, N):.4f}, FCM2: {FCM2(P, N):.4f}")
         intersection_points.set_offsets(intersections[idx].T)
         contact_points.set_offsets(P.T)
         FCM_timeline.set_xdata((t, t))
@@ -303,8 +296,6 @@ def FC_animation(points, normals, FCM, t0=0, t1=10, steps=500):
 
 
 if __name__ == "__main__":
-    import pathlib
-    import json
 
     def rocking_normals(frame: int):
         t = frame / 10.0
@@ -316,11 +307,4 @@ if __name__ == "__main__":
     def rocking_points(frame: int):
         return np.array([[-4, -1.5, 1.5, 4], [-2, 0, 0, -2 + frame * 0.01]])
 
-    root_dir = pathlib.Path(__file__).parent.resolve()
-    # config_root = root_dir / "configs/"
-    with open(root_dir / "path_description.json") as f:
-        path_description = json.load(f)
-    P = np.column_stack([c["point"] for c in path_description["contacts"]])
-    N = np.column_stack([c["normal"] for c in path_description["contacts"]])
-    FC_animation(rocking_points, rocking_normals, FCM1)
-    # FC_plot(P, N)
+    FC_animation(rocking_points, rocking_normals, t0=0, t1=40)
