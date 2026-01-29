@@ -1,6 +1,10 @@
 import numpy as np
 from tqdm import tqdm
-from fc_visualizer import FCM1, FC_plot
+import pathlib
+import sys
+root_dir = pathlib.Path(__file__).parent.resolve()
+sys.path.append(str(root_dir.parent / "fc_tools"))
+from fc_visualizer import FCM1, contacts_plot
 
 def solve_snake_fcm_dp(points, first_m_normals, m, num_directions=12):
     """
@@ -117,36 +121,6 @@ def solve_snake_fcm_dp(points, first_m_normals, m, num_directions=12):
     return optimized_normals, maximized_min_fcm
 
 
-def _FC_plot(points: np.ndarray, normals: np.ndarray):
-    from matplotlib import pyplot as plt
-    import matplotlib
-
-    matplotlib.use("WebAgg")
-
-    assert points.shape == normals.shape
-    P = points
-    N = normals / np.linalg.norm(normals, axis=0)
-    print(N)
-
-
-    fig, ax = plt.subplots()
-    arrs = []
-    for i in range(P.shape[1]):
-        arrs.append(ax.annotate(
-            "",
-            xytext=P[:, i],
-            xy=P[:, i] + N[:, i],
-            arrowprops=dict(arrowstyle="->", color="m"),
-            annotation_clip=False
-        ))
-        # ax.plot((P[0, i], P[0, i] + N[0, i]), (P[1, i], P[1, i] + N[1, i]))
-
-    ax.scatter(P[0, :], P[1, :], color="b")
-
-    ax.set_aspect("equal")
-    plt.show()
-
-
 def contacts_to_json(P, N):
     """
     P: np.ndarray of shape (2, M)  - points as columns
@@ -182,15 +156,14 @@ if __name__ == "__main__":
         [1.0, 0.0, 0.0, -1.0, 1],
         [-1.0, 1.0, 1.0, -1.0, -1]
     ])
-    # print(FCM1(P[:, :6], N))
-    # FC_plot(P[:, :4], N)
-
+    m = 5
+    num_directions = 21
+    print(f"FCM of first {m} points is {FCM1(P[:, :m], N[:, :m])}")
     
-    N, pfcm = solve_snake_fcm_dp(P, N, 5, 21)
-    # for i in range(N.shape[1]):
-        # print(N[:,i])
+    N, pfcm = solve_snake_fcm_dp(P, N, m, num_directions)
     import json
-    with open("out_path.json", "w") as file:
+    path_dir = root_dir / "paths"
+    with open(path_dir / "path_{m}_{num_directions}.json", "w") as file:
         json.dump(contacts_to_json(P, N), file)
-    print(pfcm)
-    _FC_plot(P, N)
+    print(f"Path's minimal fcm is {pfcm}")
+    contacts_plot(P, N)

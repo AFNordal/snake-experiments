@@ -172,6 +172,34 @@ def FCM1(points: np.ndarray, normals: np.ndarray):
         min_PTI = min(-S_min * S_max, min_PTI)
     return min_PTI
 
+def contacts_plot(points: np.ndarray, normals: np.ndarray):
+    from matplotlib import pyplot as plt
+    import matplotlib
+
+    matplotlib.use("WebAgg")
+
+    assert points.shape == normals.shape
+    P = points
+    N = normals / np.linalg.norm(normals, axis=0)
+
+
+    fig, ax = plt.subplots()
+    arrs = []
+    for i in range(P.shape[1]):
+        arrs.append(ax.annotate(
+            "",
+            xytext=P[:, i],
+            xy=P[:, i] + N[:, i],
+            arrowprops=dict(arrowstyle="->", color="m"),
+            annotation_clip=False
+        ))
+
+    ax.scatter(P[0, :], P[1, :], color="b")
+
+    ax.set_aspect("equal")
+    plt.show()
+
+
 
 def FC_plot(points: np.ndarray, normals: np.ndarray):
     from matplotlib import pyplot as plt
