@@ -37,7 +37,7 @@ def rocking_references(t: float):
     return np.array([phi1, phi2])
 
 
-controller = PIDController(50000, 0, 500, snake_description["n_links"] - 1, 0)
+controller = PIDController(10000, 0, 40, snake_description["n_links"] - 1, 0)
 simulator = Simulator(
     simulator_config,
     snake_description,
