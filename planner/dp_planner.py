@@ -2,6 +2,9 @@ import numpy as np
 from tqdm import tqdm
 import pathlib
 import sys
+from time import perf_counter as timer
+
+
 root_dir = pathlib.Path(__file__).parent.resolve()
 sys.path.append(str(root_dir.parent / "fc_tools"))
 from fc_visualizer import FCM1, contacts_plot
@@ -121,7 +124,7 @@ def solve_snake_fcm_dp(points, first_m_normals, m, num_directions=12):
     return optimized_normals, maximized_min_fcm
 
 
-def contacts_to_json(P, N):
+def contacts_to_json(P, N, planner):
     """
     P: np.ndarray of shape (2, M)  - points as columns
     N: np.ndarray of shape (2, K)  - normals as columns
@@ -143,7 +146,7 @@ def contacts_to_json(P, N):
             "side": side
         })
 
-    return {"contacts": contacts}
+    return {"contacts": contacts, "planner": planner}
 
 if __name__ == "__main__":
     import numpy as np
@@ -159,11 +162,14 @@ if __name__ == "__main__":
     m = 5
     num_directions = 21
     print(f"FCM of first {m} points is {FCM1(P[:, :m], N[:, :m])}")
-    
+    print(f"Planning with {m=}, {num_directions=}...")
+    t0 = timer()
     N, pfcm = solve_snake_fcm_dp(P, N, m, num_directions)
+    computation_time = timer() - t0
     import json
     path_dir = root_dir / "paths"
-    with open(path_dir / "path_{m}_{num_directions}.json", "w") as file:
-        json.dump(contacts_to_json(P, N), file)
+    planner_info = {"method": "DP with FCM1", "window_size": m, "num_directions": num_directions, "PFCM1": pfcm, "computation_time": computation_time}
+    with open(path_dir / f"path_{m}_{num_directions}.json", "w") as file:
+        json.dump(contacts_to_json(P, N, planner_info), file)
     print(f"Path's minimal fcm is {pfcm}")
     contacts_plot(P, N)
