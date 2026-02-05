@@ -328,26 +328,29 @@ def FC_animation(points, normals, t0=0, t1=10, steps=500):
 
 if __name__ == "__main__":
 
-    def rocking_normals(frame: int):
-        t = frame / 10.0
-        x = 1.5 * np.sin(t)
-        phi1 = -np.asin(2 / np.sqrt(8 + 4 * x + x**2))
-        phi2 = -np.asin(2 / np.sqrt(8 - 4 * x + x**2))
-        return np.array([[-np.sin(phi1), 0, 0, np.sin(phi2)], [-np.cos(phi1), 1, 1, -np.cos(phi2)]])
+    # def rocking_normals(frame: int):
+    #     t = frame / 10.0
+    #     x = 1.5 * np.sin(t)
+    #     phi1 = -np.asin(2 / np.sqrt(8 + 4 * x + x**2))
+    #     phi2 = -np.asin(2 / np.sqrt(8 - 4 * x + x**2))
+    #     return np.array([[-np.sin(phi1), 0, 0, np.sin(phi2)], [-np.cos(phi1), 1, 1, -np.cos(phi2)]])
 
-    def rocking_points(frame: int):
-        return np.array([[-4, -1.5, 1.5, 4], [-2, 0, 0, -2 + frame * 0.01]])
+    # def rocking_points(frame: int):
+    #     return np.array([[-4, -1.5, 1.5, 4], [-2, 0, 0, -2 + frame * 0.01]])
 
-    FC_animation(rocking_points, rocking_normals, t0=0, t1=40)
+    # FC_animation(rocking_points, rocking_normals, t0=0, t1=40)
 
-    # import pathlib
-    # import json
+    import pathlib
+    import json
 
-    # root_dir = pathlib.Path(__file__).parent.resolve()
-    # with open(root_dir / "path_description.json") as f:
-    #     path_description = json.load(f)
-    # P = np.column_stack([c["point"] for c in path_description["contacts"]])
-    # N = np.column_stack([c["normal"] for c in path_description["contacts"]])
+    root_dir = pathlib.Path(__file__).parent.resolve()
+    with open(root_dir / "../planner/paths/path_5_15.json") as f:
+        path_description = json.load(f)
+    P = np.column_stack([c["point"] for c in path_description["contacts"]])
+    N = np.column_stack([c["normal"] for c in path_description["contacts"]])
 
-    # FC_plot(P, N)
-    # print(FCM1(P, N))
+    pfcm = np.inf
+    for i in range(P.shape[1]-5):
+        pfcm = min(pfcm, FCM1(P[:, i:i+5], N[:, i:i+5]))
+    print(pfcm)
+    contacts_plot(P, N)
