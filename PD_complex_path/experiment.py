@@ -40,18 +40,27 @@ dt = simulator.dt
 
 errors = []
 tau_max = []
+planned_contacts = []
+real_contacts = []
 
 for step in trange(int(sim_duration / dt)):
-    if (step % 200) == 0:
-        rms_error = path.rms_tracking_error(simulator.get_joint_center_coords())
-        errors.append(rms_error)
+    path_param = min(max(0, (step * dt - 0.2) * 0.1), path.curve.length() - 4.5)
+
+    if (step % 20) == 0:
+        # rms_error = path.rms_tracking_error(simulator.get_joint_center_coords())
+        # errors.append(rms_error)
+        planned_contacts.append(path.planned_contacts(path_param)[1])
+        real_contacts.append(simulator.get_n_contacts())
+        
     # Find reference pose
-    path_param = min(max(0, (step * dt - 0.2) / 4), path.curve.length() - 4.5)
     pose = path.to_snake_pose(path_param, unit="rad")
     # Compute and apply control
     controller.set_reference(pose[3:])
     torques = controller.tick(simulator.get_joint_angles(), dt)
-    tau_max.append(max(torques))
+    # max_torque = max(torques)
+    # if max_torque > snake_description["max_torque_nm"]:
+    #     print(f"WARNING: Torque saturated ({max_torque})")
+    # tau_max.append(max_torque)
     simulator.step(torques)
     if simulator.should_close():
         break
@@ -61,6 +70,8 @@ from matplotlib import pyplot as plt
 import matplotlib
 matplotlib.use("WebAgg")
 # plt.plot(errors, label="rms_to_closest")
-plt.plot(tau_max, label="tau_max")
-plt.legend()
+# plt.plot(tau_max, label="tau_max")
+plt.plot(list(range(len(planned_contacts))), planned_contacts)
+plt.plot(list(range(len(real_contacts))), real_contacts)
+# plt.legend()
 plt.show()
