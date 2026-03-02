@@ -49,7 +49,7 @@ for step in trange(int(sim_duration / dt)):
     if (step % 20) == 0:
         # rms_error = path.rms_tracking_error(simulator.get_joint_center_coords())
         # errors.append(rms_error)
-        planned_contacts.append(path.planned_contacts(path_param)[1])
+        planned_contacts.append(len(path.planned_contacts(path_param)[0]))
         real_contacts.append(simulator.get_n_contacts())
         
     # Find reference pose
