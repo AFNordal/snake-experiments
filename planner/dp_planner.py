@@ -160,7 +160,7 @@ if __name__ == "__main__":
         [-1.0, 1.0, 1.0, -1.0, -1]
     ])
     m = 5
-    num_directions = 21
+    num_directions = 31
     print(f"FCM of first {m} points is {FCM1(P[:, :m], N[:, :m])}")
     print(f"Planning with {m=}, {num_directions=}...")
     t0 = timer()
