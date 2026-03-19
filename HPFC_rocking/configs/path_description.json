@@ -1,0 +1,8 @@
+{
+    "contacts": [
+{"point": [-4, -2], "normal": [1, -1], "side": "l"},
+{"point": [-1.5, 0], "normal": [0, 1], "side": "r"},
+{"point": [1.5, 0], "normal": [0, 1], "side": "r"},
+{"point": [4, -2], "normal": [-1, -1], "side": "l"}
+    ]
+}

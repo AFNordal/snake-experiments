@@ -1,0 +1,13 @@
+{
+    "n_links": 3,
+    "link_mass_kg": 1,
+    "link_length_m": 4,
+    "link_radius_m": 0.2,
+    "max_torque_nm": 200,
+    "friction": 0.0,
+    "joint_range_deg": 110,
+    "joint_damping": 0.05,
+    "joint_armature": 0,
+    "color": [0.8, 0.4, 0, 1],
+    "initial_pose": []
+}

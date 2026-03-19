@@ -1,4 +1,4 @@
-from SimSerpent.control.controllers import PIDController
+from SimSerpent.control.controllers import PIDControllerArray
 from SimSerpent.simulation import Simulator
 from SimSerpent.control.path import SnakePath
 from SimSerpent.control.path.utils import contacts_to_obstacle_centers
@@ -32,7 +32,7 @@ path_param = 0
 pose = path.to_snake_pose(path_param, unit="rad")
 snake_description["initial_pose"] = pose
 
-controller = PIDController(6000, 0, 25, snake_description["n_links"] - 1, 0)
+controller = PIDControllerArray(6000, 0, 25, snake_description["n_links"] - 1, 0)
 simulator = Simulator(simulator_config, snake_description, obstacles_description, video_output_path="")
 simulator.set_display_curve(path.curve, z=0)
 sim_duration = 30.0  # seconds

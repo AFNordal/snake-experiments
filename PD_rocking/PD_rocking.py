@@ -1,4 +1,4 @@
-from SimSerpent.control.controllers import PIDController
+from SimSerpent.control.controllers import PIDControllerArray
 from SimSerpent.simulation import Simulator
 from SimSerpent.control.path.utils import contacts_to_obstacle_centers
 import json
@@ -37,7 +37,7 @@ def rocking_references(t: float):
     return np.array([phi1, phi2])
 
 
-controller = PIDController(10000, 0, 40, snake_description["n_links"] - 1, 0)
+controller = PIDControllerArray(10000, 0, 40, snake_description["n_links"] - 1, 0)
 simulator = Simulator(
     simulator_config,
     snake_description,
