@@ -1,12 +1,12 @@
 {
-    "n_links": 6,
-    "link_mass_kg": 0.5,
-    "link_length_m": 2,
-    "link_radius_m": 0.0125,
+    "n_links": 3,
+    "link_mass_kg": 0.01,
+    "link_length_m": 1,
+    "link_radius_m": 0.05,
     "max_torque_nm": 100,
     "friction": 0.0,
     "joint_range_deg": 110,
-    "joint_damping": 0.05,
+    "joint_damping": 0.01,
     "joint_armature": 0.01,
     "color": [0.8, 0.4, 0, 1]
 }

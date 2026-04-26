@@ -29,7 +29,7 @@ for c in obstacle_centers:
 # Initialize snake on path
 path = SnakePath(path_description, snake_description)
 path_param = 0
-pose = path.to_snake_pose(path_param, unit="rad")
+pose = path.to_snake_pose(path_param)
 snake_description["initial_pose"] = pose
 
 controller = PIDControllerArray(6000, 0, 25, snake_description["n_links"] - 1, 0)
@@ -53,7 +53,7 @@ for step in trange(int(sim_duration / dt)):
         real_contacts.append(simulator.get_n_contacts())
         
     # Find reference pose
-    pose = path.to_snake_pose(path_param, unit="rad")
+    pose = path.to_snake_pose(path_param)
     # Compute and apply control
     controller.set_reference(pose[3:])
     torques = controller.tick(simulator.get_joint_angles(), dt)
