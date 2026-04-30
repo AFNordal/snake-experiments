@@ -1,0 +1,7 @@
+{
+    "interpolation_method": "dubins2l",
+    "alpha": 0.785398163,
+    "beta": 0.35,
+    "gamma": 0.8,
+    "turning_radius_m": 0.1
+}

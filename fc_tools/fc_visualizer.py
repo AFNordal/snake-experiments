@@ -64,7 +64,7 @@ def _get_intersections(P: np.ndarray, N: np.ndarray, tol: float = 1e-10):
 
 
 def grasp_matrix(P, N):
-    p0 = np.array([0, 0]) # Arbitrary?
+    p0 = np.array([0, 0])  # Arbitrary?
     Gi_list = []
     nc = P.shape[1]
     for i in range(nc):
@@ -106,15 +106,10 @@ def FC_G(P, N):
     # y >= 0
     bounds = [(0, None)] * n
 
-    res = linprog(
-        c,
-        A_eq=A_eq,
-        b_eq=b_eq,
-        bounds=bounds,
-        method="highs"
-    )
+    res = linprog(c, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method="highs")
 
     return res.success
+
 
 def FCM2(P, N):
     G = grasp_matrix(P, N)
@@ -123,16 +118,13 @@ def FCM2(P, N):
     y = cp.Variable(n)
     t = cp.Variable()
 
-    constraints = [
-        G @ y == 0,
-        y >= t,
-        cp.norm(y, 2) <= 1
-    ]
+    constraints = [G @ y == 0, y >= t, cp.norm(y, 2) <= 1]
 
     problem = cp.Problem(cp.Maximize(t), constraints)
     problem.solve()
 
     return t.value
+
 
 def FCM1(points: np.ndarray, normals: np.ndarray):
     assert points.shape == normals.shape
@@ -172,6 +164,7 @@ def FCM1(points: np.ndarray, normals: np.ndarray):
         min_PTI = min(-S_min * S_max, min_PTI)
     return min_PTI
 
+
 def contacts_plot(points: np.ndarray, normals: np.ndarray):
     from matplotlib import pyplot as plt
     import matplotlib
@@ -182,23 +175,23 @@ def contacts_plot(points: np.ndarray, normals: np.ndarray):
     P = points
     N = normals / np.linalg.norm(normals, axis=0)
 
-
     fig, ax = plt.subplots()
     arrs = []
     for i in range(P.shape[1]):
-        arrs.append(ax.annotate(
-            "",
-            xytext=P[:, i],
-            xy=P[:, i] + N[:, i],
-            arrowprops=dict(arrowstyle="->", color="m"),
-            annotation_clip=False
-        ))
+        arrs.append(
+            ax.annotate(
+                "",
+                xytext=P[:, i],
+                xy=P[:, i] + N[:, i],
+                arrowprops=dict(arrowstyle="->", color="m"),
+                annotation_clip=False,
+            )
+        )
 
     ax.scatter(P[0, :], P[1, :], color="b")
 
     ax.set_aspect("equal")
     plt.show()
-
 
 
 def FC_plot(points: np.ndarray, normals: np.ndarray):
@@ -309,7 +302,7 @@ def FC_animation(points, normals, t0=0, t1=10, steps=500):
         idx = min(steps - 1, int((t - t0) / (t1 - t0) * steps))
         P = Ps[idx]
         N = Ns[idx]
-        
+
         print(f"FC_G: {int(FC_G(P, N))}, FCM1: {FCM1(P, N):.4f}, FCM2: {FCM2(P, N):.4f}")
         intersection_points.set_offsets(intersections[idx].T)
         contact_points.set_offsets(P.T)
@@ -328,29 +321,34 @@ def FC_animation(points, normals, t0=0, t1=10, steps=500):
 
 if __name__ == "__main__":
 
-    # def rocking_normals(frame: int):
-    #     t = frame / 10.0
-    #     x = 1.5 * np.sin(t)
-    #     phi1 = -np.asin(2 / np.sqrt(8 + 4 * x + x**2))
-    #     phi2 = -np.asin(2 / np.sqrt(8 - 4 * x + x**2))
-    #     return np.array([[-np.sin(phi1), 0, 0, np.sin(phi2)], [-np.cos(phi1), 1, 1, -np.cos(phi2)]])
+    def rocking_normals(frame: int):
+        t = frame / 10.0
+        x = 1.5 * np.sin(t)
+        phi1 = -np.asin(2 / np.sqrt(8 + 4 * x + x**2))
+        phi2 = -np.asin(2 / np.sqrt(8 - 4 * x + x**2))
+        return np.array(
+            [
+                [-np.sin(phi1), 0, 0, np.sin(phi2)],
+                [-np.cos(phi1), 1, 1, -np.cos(phi2)],
+            ]
+        )
 
-    # def rocking_points(frame: int):
-    #     return np.array([[-4, -1.5, 1.5, 4], [-2, 0, 0, -2 + frame * 0.01]])
+    def rocking_points(frame: int):
+        return np.array([[-4, -1.5, 1.5, 4], [-2, 0, 0, -2]])
 
-    # FC_animation(rocking_points, rocking_normals, t0=0, t1=40)
+    FC_animation(rocking_points, rocking_normals, t0=0, t1=40)
 
-    import pathlib
-    import json
+    # import pathlib
+    # import json
 
-    root_dir = pathlib.Path(__file__).parent.resolve()
-    with open(root_dir / "../planner/paths/path_5_15.json") as f:
-        path_description = json.load(f)
-    P = np.column_stack([c["point"] for c in path_description["contacts"]])
-    N = np.column_stack([c["normal"] for c in path_description["contacts"]])
+    # root_dir = pathlib.Path(__file__).parent.resolve()
+    # with open(root_dir / "../planner/paths/path_5_15.json") as f:
+    #     path_description = json.load(f)
+    # P = np.column_stack([c["point"] for c in path_description["contacts"]])
+    # N = np.column_stack([c["normal"] for c in path_description["contacts"]])
 
-    pfcm = np.inf
-    for i in range(P.shape[1]-5):
-        pfcm = min(pfcm, FCM1(P[:, i:i+5], N[:, i:i+5]))
-    print(pfcm)
-    contacts_plot(P, N)
+    # pfcm = np.inf
+    # for i in range(P.shape[1]-5):
+    #     pfcm = min(pfcm, FCM1(P[:, i:i+5], N[:, i:i+5]))
+    # print(pfcm)
+    # contacts_plot(P, N)

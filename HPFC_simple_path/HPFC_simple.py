@@ -2,6 +2,7 @@ from SimSerpent.control.controllers import HPFCController
 from SimSerpent.simulation import Simulator
 from SimSerpent.control.path import SnakePath
 from SimSerpent.control.path.utils import s_ref_sin
+from SimSerpent.control.path.interpolation.rocking import abgk_to_contacts
 import json
 import pathlib
 from tqdm import tqdm, trange  # Loading bar
@@ -20,15 +21,29 @@ with open(config_root / "simulator_config.json") as f:
     simulator_config = json.load(f)
 
 
-sim_duration = 10.0  # seconds
+sim_duration = 60.0  # seconds
 dt = simulator_config["timestep"]
 N = int(sim_duration / dt)
+contacts = abgk_to_contacts(
+    path_description["alpha"],
+    path_description["beta"],
+    path_description["gamma"],
+    1.0,
+)
+_contacts = abgk_to_contacts(
+    path_description["alpha"],
+    path_description["beta"],
+    path_description["gamma"]*2,
+    1.0,
+)
+contacts = [_contacts[0]] + contacts + [_contacts[-1]]
+path_description["contacts"] = contacts
+path = SnakePath(path_description, snake_description, dir="forward")
 
-path = SnakePath(path_description, snake_description, dir="backward")
-deltas = s_ref_sin(dt=dt, N=N, t_settle=0.5, amplitude=0.05, acceleration=0.05)
-S = []
-for d in tqdm(deltas):
-    S.append(path.delta_to_s(d))
+S = list(0.6 + s for s in s_ref_sin(dt=dt, N=N, t_settle=0.5, amplitude=0.05, acceleration=0.05))
+# S = []
+# for d in tqdm(deltas):
+#     S.append(path.delta_to_s(d))
 
 # import numpy as np
 # import matplotlib
@@ -64,39 +79,16 @@ simulator = Simulator(
 )
 simulator.set_display_curve(path.curve, z=2 * snake_description["link_radius_m"])
 # pos_controllers = PIDControllerArray(6000, 0, 20, n=snake_description["n_links"] - 1, derivative_filter_tc=2*dt)
-hpfc_controller = HPFCController(
-    path,
-    f_min=0.1,
-    force_Kp=0.1,
-    force_Ki=0.0,
-    force_Kd=0.0,
-    force_derivative_tc=0.0,
-    force_filter_tc=0.1,
-    force_max_correction=0.1,
-    force_min_correction=-0.1,
-    shape_Kp=1.0,
-    shape_Ki=0.0,
-    shape_Kd=0.1,
-    shape_derivative_tc=0.001,
-    shape_filter_tc=0.0,
-    propulsion_Kp=2.0,
-    propulsion_Ki=0.0,
-    propulsion_Kd=0.0,
-    propulsion_derivative_tc=0.0,
-    propulsion_filter_tc=0.0,
-    inner_Kp=5.0,
-    inner_Ki=0.0,
-    inner_Kd=0.0,
-    inner_derivative_tc=0.0,
-    inner_filter_tc=0.0,
-)
+hpfc_controller = HPFCController(path, f_min=0.1)
 forces = list([] for i in range(4))
 times = []
 ncons = []
-dms = []
+sms = []
 
 
 for step in range(N):
+    # while 1:
+    #     simulator.step()
     # Find reference pose
     path_param = S[step]
     # print(path_param, path.s_to_delta(path_param))
@@ -107,7 +99,7 @@ for step in range(N):
     # torques = pos_controllers.tick(phi, dt)
 
     joint_centers = simulator.get_joint_center_coords()
-    s, _ = path.curve.closest_point(joint_centers[-1])
+    s, _ = path.curve.closest_point(joint_centers[0])
     # print(s, path.s_to_delta(s))
     # print(f"{s:.5f}\t{path_param:.5f}")
     # print(f"{path.s_to_delta(s):.5f}\t{deltas[step]:.5f}")
@@ -124,7 +116,7 @@ for step in range(N):
         forces[i].append(f[i])
     times.append(step * dt)
     ncons.append(simulator.get_n_contacts())
-    dms.append(path.s_to_delta(s))
+    sms.append(s)
 
     # t1 = time_ns()
     # print(f"{(t1-t0)*1e-6:.2f} ms")
@@ -194,8 +186,8 @@ fig, axes = plt.subplots(3, 1)
 axes[0].plot(times, ncons)
 for i in range(4):
     axes[1].plot(times, forces[i])
-axes[2].plot(times, deltas[: len(times)], "r:")
-axes[2].plot(times, dms)
+axes[2].plot(times, S[: len(times)], "r:")
+axes[2].plot(times, sms)
 plt.show()
 # # plt.plot(errors, label="rms_to_closest")
 # # plt.plot(tau_max, label="tau_max")

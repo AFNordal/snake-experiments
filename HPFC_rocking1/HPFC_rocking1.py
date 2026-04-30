@@ -1,7 +1,7 @@
 from SimSerpent.control.controllers import HPFCController
 from SimSerpent.simulation import Simulator
 from SimSerpent.control.path import SnakePath
-from SimSerpent.control.path.utils import abgk_to_obstacle_centers, s_ref
+from SimSerpent.control.path.utils import abgk_to_obstacle_centers, s_ref_linear
 import json
 import pathlib
 from tqdm import trange  # Loading bar
@@ -63,7 +63,7 @@ hpfc_controller = HPFCController(path, f_min=0.1)
 
 for step in range(int(sim_duration / dt)):
     # Find reference pose
-    path_param = s_ref(step*dt, s0, t_settle, s_ddot, s_dot)
+    path_param = s_ref_linear(step*dt, s0, t_settle, s_ddot, s_dot)
     # print(path_param, path.s_to_delta(path_param, "backward"))
     # pose = path.to_snake_pose(path_param, "backward")
     # Compute and apply control

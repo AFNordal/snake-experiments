@@ -1,6 +1,6 @@
 {
-    "interpolation_method": "rocking2",
+    "interpolation_method": "rocking",
     "alpha": 0.785398163,
-    "beta": 1.5,
-    "gamma": 2.82842712
+    "beta": 0.35,
+    "gamma": 0.8
 }
