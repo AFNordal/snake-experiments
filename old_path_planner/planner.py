@@ -30,7 +30,7 @@ import numpy as np
 
 from .fcm import compute_fcm, compute_fcm_batch
 
-_DEFAULT_CHUNK = 200_000
+_DEFAULT_CHUNK = 2**18
 
 
 class FCMPathPlanner:
@@ -94,6 +94,8 @@ class FCMPathPlanner:
             arr = np.asarray(initial_normals, dtype=float)
             if arr.ndim == 1:
                 arr = np.column_stack([np.cos(arr), np.sin(arr)])
+            if arr.shape == (2, m):
+                arr = arr.T
             if arr.shape != (m, 2):
                 raise ValueError(
                     f"initial_normals must have shape ({m}, 2) or ({m},), "
@@ -101,6 +103,9 @@ class FCMPathPlanner:
                 )
             nrm = np.linalg.norm(arr, axis=1, keepdims=True)
             self._init_normals = arr / nrm   # (m, 2)
+            print(compute_fcm(self.P[:m], self._init_normals))
+            if compute_fcm(self.P[:m], self._init_normals) < 1e-10:
+                raise ValueError(f"Initial normals do not possess FC.")
 
     # ------------------------------------------------------------------
     # Public API
@@ -131,10 +136,9 @@ class FCMPathPlanner:
 
         # PFCM of current solution — used as lower bound for subsequent rounds
         current_pfcm = self._pfcm(best_normals)
-        print(current_pfcm)
-        # print(angle_cands[0][1]-angle_cands[0][0])
+        print(f"Iteration 0/{self.n_iter}: PFCM = {current_pfcm}")
         spread = np.pi
-        for _ in range(self.n_iter - 1):
+        for i in range(self.n_iter - 1):
             spread *= 1. / self.m
             best_angles = np.arctan2(best_normals[:, 1], best_normals[:, 0])
             angle_cands = self._build_angle_sets_refine(best_angles, spread)
@@ -142,8 +146,7 @@ class FCMPathPlanner:
             if refined is not None:
                 best_normals = refined
                 current_pfcm = self._pfcm(best_normals)
-            # print(angle_cands[0][1]-angle_cands[0][0])
-            print(current_pfcm)
+            print(f"Iteration {i+1}/{self.n_iter}: PFCM = {current_pfcm}")
 
         return best_normals
 
@@ -229,7 +232,7 @@ class FCMPathPlanner:
         back_ptrs: list[Optional[dict]] = [None] * nc
 
         # --- Forward DP ---
-        for k in trange(m - 1, nc):
+        for k in trange(m - 1, nc, leave=False):
             K = len(live_states)
             if K == 0:
                 return None
@@ -247,7 +250,7 @@ class FCMPathPlanner:
             v_new_total: list[np.ndarray] = []
             v_prev_enc : list[np.ndarray] = []
 
-            for c_start in range(0, B, chunk_size):
+            for c_start in trange(0, B, chunk_size, leave=False):
                 c_end = min(c_start + chunk_size, B)
                 sz = c_end - c_start
 
@@ -306,7 +309,6 @@ class FCMPathPlanner:
 
             live_states = new_states[best_v]
             live_values = np.column_stack([new_min[best_v], new_total[best_v]])
-
             # Back pointers (vectorised construction)
             bp_keys = new_enc[best_v].tolist()
             bp_vals = list(zip(prev_enc[best_v].tolist(), action_v[best_v].tolist()))

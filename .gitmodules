@@ -1,3 +1,6 @@
 [submodule "SimSerpent_Official"]
 	path = SimSerpent
 	url = git@github.com:Boa-Snake-Robot/SimSerpent_Official.git
+[submodule "RaTLsnake"]
+	path = RaTLsnake
+	url = git@github.com:Boa-Snake-Robot/RaTLsnake.git

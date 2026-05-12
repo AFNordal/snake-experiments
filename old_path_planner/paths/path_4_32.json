@@ -1,0 +1,1 @@
+{"contacts": [{"point": [0.0, 0.0], "normal": [-0.5428926678627928, -0.8398020904837159], "side": "l"}, {"point": [0.5, 0.0], "normal": [0.9907085425657903, -0.13600214589177517], "side": "l"}], "planner": {"method": "DP with FCM1", "window_size": 4, "num_directions": 32, "PFCM1": 0.5486141179262629, "computation_time": 5.728256405000138}}

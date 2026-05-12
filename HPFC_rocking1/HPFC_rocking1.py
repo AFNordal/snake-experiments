@@ -1,7 +1,7 @@
 from SimSerpent.control.controllers import HPFCController
 from SimSerpent.simulation import Simulator
 from SimSerpent.control.path import SnakePath
-from SimSerpent.control.path.utils import abgk_to_obstacle_centers, s_ref_linear
+from SimSerpent.control.path.utils import s_ref_linear
 import json
 import pathlib
 from tqdm import trange  # Loading bar
@@ -21,33 +21,37 @@ with open(config_root / "obstacles_description.json") as f:
 with open(config_root / "simulator_config.json") as f:
     simulator_config = json.load(f)
 
+path = SnakePath(path_description, snake_description, dir="backward")
+
 # Find obstacles from contacts
-obstacle_centers = abgk_to_obstacle_centers(
-    path_description["alpha"],
-    path_description["beta"],
-    path_description["gamma"],
-    snake_description["link_length_m"],
-    snake_description["n_links"],
+obstacle_centers = path.calculate_obstacle_centers(
     snake_description["link_radius_m"] + obstacles_description["default"]["radius"],
 )
 for c in obstacle_centers:
     obstacles_description["obstacles"].append({"position": c})
 
 # Initialize snake on path
-path = SnakePath(path_description, snake_description)
-s0 = path.delta_to_s(0, "backward")
-s_dot = 0.
+s0 = path.delta_to_s(0)
+print(s0)
+s_dot = 0.01
 s_ddot = 0.01
 t_settle = 0.2
 
+
+sim_duration = 200.0  # seconds
+dt = simulator_config["timestep"]
+N = int(sim_duration / dt)
+
+S = s_ref_linear(dt, N, s0, t_settle, s_ddot, s_dot)
+
 print(path.curve.length())
 
-pose = path.to_snake_pose(s0, "backward")
+pose = path.to_snake_pose(s0)
+print(pose)
 # dist = 0.0
 # pose[7] += dist
 # pose[8] -= dist
 snake_description["initial_pose"] = pose
-
 simulator = Simulator(
     simulator_config,
     snake_description,
@@ -55,17 +59,16 @@ simulator = Simulator(
     video_output_path=root_dir / "out.mp4",
 )
 simulator.set_display_curve(path.curve, z=0)
-sim_duration = 200.0  # seconds
-dt = simulator.dt
 # pos_controllers = PIDControllerArray(6000, 0, 20, n=snake_description["n_links"] - 1, derivative_filter_tc=2*dt)
 hpfc_controller = HPFCController(path, f_min=0.1)
 
 
-for step in range(int(sim_duration / dt)):
+
+for step in range(N):
     # Find reference pose
-    path_param = s_ref_linear(step*dt, s0, t_settle, s_ddot, s_dot)
-    # print(path_param, path.s_to_delta(path_param, "backward"))
-    # pose = path.to_snake_pose(path_param, "backward")
+    path_param = S[step]
+    # print(path_param, path.s_to_delta(path_param))
+    # pose = path.to_snake_pose(path_param)
     # Compute and apply control
     # pos_controllers.set_reference(pose[3:])
     phi = simulator.get_joint_angles()
@@ -73,7 +76,7 @@ for step in range(int(sim_duration / dt)):
 
     joint_centers = simulator.get_joint_center_coords()
     s, _ = path.curve.closest_point(joint_centers[-1])
-    contact_obstacles, contact_links = path.planned_contacts(s, dir="backward")
+    contact_obstacles, contact_links = path.planned_contacts(s)
     # t0 = time_ns()
     f = np.array(
         [simulator.get_obstacle_contact_force(f"obstacle_{i}") for i in contact_obstacles]
@@ -83,7 +86,7 @@ for step in range(int(sim_duration / dt)):
     if err is None:
         err = 0
     # print(f"{simulator.get_n_contacts()}/{len(contact_obstacles)}\t{np.linalg.norm(err):.3f}\t{path_param:.3f}\t{s:.3f}")
-    torques = hpfc_controller.tick(dt, path_param, s, phi, f, dir="backward")
+    torques = hpfc_controller.tick(dt, path_param, s, phi, f)
 
 
     # t1 = time_ns()
