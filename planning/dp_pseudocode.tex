@@ -1,0 +1,134 @@
+% Assumes: algorithm, amsmath, algpseudocode packages already included.
+% \vect{} and \mat{} macros defined externally.
+
+% ---------------------------------------------------------------------------
+% Algorithm 0: Annotated version of Algorithm 1
+% ---------------------------------------------------------------------------
+\begin{algorithm}
+\caption{DP path planner — basic, annotated (maximises PFCM)}
+\label{alg:dp-basic-annotated}
+\begin{algorithmic}
+
+\Statex \textit{Discretise the space of normal directions into $n_a$ equally spaced candidates.}
+\State Sample $n_a$ angles uniformly from $[0,2\pi)$; let $\mathcal{A}$ be the corresponding unit normals
+
+\Statex
+\Statex \textit{A \textbf{DP state} at step $k$ encodes the $m{-}1$ most recently chosen normals}
+\Statex \textit{$s=(\vect{n}_{k-m+1},\ldots,\vect{n}_{k-1})$. Together with a new candidate $\vect{n}'_k$, it fixes all}
+\Statex \textit{$m$ normals of the current sliding window, allowing FCM to be evaluated.}
+\Statex \textit{Each state also carries a running value $v$, the worst FCM seen along the path so far.}
+
+\Statex
+\Statex \textit{Before any window is evaluated, all combinations of $m{-}1$ candidates are valid}
+\Statex \textit{starting states. Each is initialised with $v=+\infty$ (no constraint imposed yet).}
+\State $Q \gets \bigl\{\,(s,\;+\infty)\;\bigm|\;s\in\mathcal{A}^{m-1}\bigr\}$
+
+\Statex
+\Statex \textit{Process contacts one at a time. At step $k$, the sliding window covers}
+\Statex \textit{$\{\vect{p}_{k-m+1},\ldots,\vect{p}_k\}$. For every state–candidate pair we evaluate FCM for}
+\Statex \textit{that window. Pairs yielding $f\leq 0$ (no form closure) are discarded. For the}
+\Statex \textit{remainder, the running minimum is updated and the state is advanced by sliding}
+\Statex \textit{the window forward: the oldest normal $\vect{n}_{k-m+1}$ leaves and $\vect{n}'_k$ enters.}
+\Statex \textit{When multiple paths reach the same new state $s'$, only the one with the best $v$ is kept.}
+\For{$k=m,\;\ldots,\;n_c$}
+  \State $Q'\gets[\,]$
+  \For{each state $s=(\vect{n}_{k-m+1},\ldots,\vect{n}_{k-1})$ with value $v_s$ in $Q$}
+    \For{each $\vect{n}'_k\in\mathcal{A}$} \Comment{candidate for $\vect{n}_k$}
+      \State $f\gets\mathrm{FCM}\!\left(\{\vect{p}_{k-m+1},\ldots,\vect{p}_k\},\,\{\vect{n}_{k-m+1},\ldots,\vect{n}_{k-1},\vect{n}'_k\}\right)$
+      \If{$f>0$}
+        \State $v\gets\min(v_s,\,f)$
+        \State $s'\gets(\vect{n}_{k-m+2},\ldots,\vect{n}_{k-1},\vect{n}'_k)$
+        \State Add $s'$ to $Q'$ with value $v$; if already present, keep the larger $v$
+        \State $\mathrm{bp}_k[s'] \gets (s,\,\vect{n}'_k)$ \Comment{predecessor state and chosen normal}
+      \EndIf
+    \EndFor
+  \EndFor
+  \State $Q\gets Q'$
+\EndFor
+
+\Statex
+\Statex \textit{The entry in $Q$ with maximum $v$ is the path whose worst-window FCM is highest,}
+\Statex \textit{i.e.\ the path maximising PFCM. Each $\mathrm{bp}_k[s']$ stores the predecessor state $s$}
+\Statex \textit{and the normal $\vect{n}'_k$ that advanced $s$ to $s'$ at step $k$. Tracing this map}
+\Statex \textit{from the best final state back to $k=m$ recovers all chosen normals.}
+\State Starting from the entry in $Q$ with maximum $v$, trace $\mathrm{bp}_k[\,\cdot\,]$ from $k=n_c$ back to $k=m$ to recover $\vect{n}_1,\ldots,\vect{n}_{n_c}$
+\State \Return $\mat{N}=[\vect{n}_1\;\cdots\;\vect{n}_{n_c}]$
+\end{algorithmic}
+\end{algorithm}
+
+% ---------------------------------------------------------------------------
+% Algorithm 1: Basic DP — maximises PFCM only
+% ---------------------------------------------------------------------------
+\begin{algorithm}
+\caption{DP path planner — basic (maximises PFCM)}
+\label{alg:dp-basic}
+\begin{algorithmic}
+\State Sample $n_a$ angles uniformly from $[0,2\pi)$; let $\mathcal{A}$ be the set of corresponding unit normals
+\State \textbf{DP state:} a tuple $s=(\vect{n}_{k-m+1},\ldots,\vect{n}_{k-1})\in\mathcal{A}^{m-1}$ encoding the $m{-}1$ most recently chosen normals, together with a running value $v\in\mathbb{R}$
+\State Initialise array $Q$: one entry per tuple in $\mathcal{A}^{m-1}$, each with value $v=+\infty$
+\For{$k=m,\;\ldots,\;n_c$}
+  \State $Q'\gets[\,]$
+  \For{each state $s=(\vect{n}_{k-m+1},\ldots,\vect{n}_{k-1})$ with value $v_s$ in $Q$}
+    \For{each $\vect{n}'_k\in\mathcal{A}$} \Comment{candidate for $\vect{n}_k$}
+      \State $f\gets\mathrm{FCM}\!\left(\{\vect{p}_{k-m+1},\ldots,\vect{p}_k\},\,\{\vect{n}_{k-m+1},\ldots,\vect{n}_{k-1},\vect{n}'_k\}\right)$
+      \If{$f>0$}
+        \State $v\gets\min(v_s,\,f)$
+        \State $s'\gets(\vect{n}_{k-m+2},\ldots,\vect{n}_{k-1},\vect{n}'_k)$ \Comment{advance state}
+        \State Add $s'$ to $Q'$ with value $v$; if already present, keep the larger $v$
+        \State $\mathrm{bp}_k[s'] \gets (s,\,\vect{n}'_k)$ \Comment{predecessor state and chosen normal}
+      \EndIf
+    \EndFor
+  \EndFor
+  \State $Q\gets Q'$
+\EndFor
+\State Starting from the entry in $Q$ with maximum $v$, trace $\mathrm{bp}_k[\,\cdot\,]$ from $k=n_c$ back to $k=m$ to recover $\vect{n}_1,\ldots,\vect{n}_{n_c}$
+\State \Return $\mat{N}=[\vect{n}_1\;\cdots\;\vect{n}_{n_c}]$
+\end{algorithmic}
+\end{algorithm}
+
+% ---------------------------------------------------------------------------
+% Algorithm 2: DP — maximises PFCM, breaks ties by total FCM
+% ---------------------------------------------------------------------------
+\begin{algorithm}
+\caption{DP path planner — with secondary optimisation goal (maximises PFCM, breaks ties by total FCM)}
+\label{alg:dp-secondary}
+\begin{algorithmic}
+\State Sample $n_a$ angles uniformly from $[0,2\pi)$; let $\mathcal{A}$ be the set of corresponding unit normals
+\State \textbf{DP state:} a tuple $s=(\vect{n}_{k-m+1},\ldots,\vect{n}_{k-1})\in\mathcal{A}^{m-1}$ encoding the $m{-}1$ most recently chosen normals, together with value $v=(v^{\min},v^{\mathrm{tot}})\in\mathbb{R}^2$
+\State Initialise array $Q$: one entry per tuple in $\mathcal{A}^{m-1}$, each with value $v=(+\infty,\,0)$
+\For{$k=m,\;\ldots,\;n_c$}
+  \State $Q'\gets[\,]$
+  \For{each state $s=(\vect{n}_{k-m+1},\ldots,\vect{n}_{k-1})$ with value $v_s=(v_s^{\min},v_s^{\mathrm{tot}})$ in $Q$}
+    \For{each $\vect{n}'_k\in\mathcal{A}$} \Comment{candidate for $\vect{n}_k$}
+      \State $f\gets\mathrm{FCM}\!\left(\{\vect{p}_{k-m+1},\ldots,\vect{p}_k\},\,\{\vect{n}_{k-m+1},\ldots,\vect{n}_{k-1},\vect{n}'_k\}\right)$
+      \If{$f>0$}
+        \State $v\gets\bigl(\min(v_s^{\min},\,f),\;\;v_s^{\mathrm{tot}}+f\bigr)$
+        \State $s'\gets(\vect{n}_{k-m+2},\ldots,\vect{n}_{k-1},\vect{n}'_k)$ \Comment{advance state}
+        \State Add $s'$ to $Q'$ with value $v$; if already present, keep the entry with larger $v^{\min}$, or if equal, larger $v^{\mathrm{tot}}$
+        \State $\mathrm{bp}_k[s'] \gets (s,\,\vect{n}'_k)$ \Comment{predecessor state and chosen normal}
+      \EndIf
+    \EndFor
+  \EndFor
+  \State $Q\gets Q'$
+\EndFor
+\State Starting from the entry in $Q$ with largest $v^{\min}$ (ties broken by $v^{\mathrm{tot}}$), trace $\mathrm{bp}_k[\,\cdot\,]$ from $k=n_c$ back to $k=m$ to recover $\vect{n}_1,\ldots,\vect{n}_{n_c}$
+\State \Return $\mat{N}=[\vect{n}_1\;\cdots\;\vect{n}_{n_c}]$
+\end{algorithmic}
+\end{algorithm}
+
+% ---------------------------------------------------------------------------
+% Algorithm 3: DP with secondary goal and iterative refinement (no pruning)
+% ---------------------------------------------------------------------------
+\begin{algorithm}
+\caption{DP path planner — with secondary goal and iterative refinement}
+\label{alg:dp-refined}
+\begin{algorithmic}
+\State $\mathcal{A}_i\gets n_a$ unit normals sampled uniformly from $[0,2\pi)$, for $i=1,\ldots,n_c$
+\State $\mat{N}^*\gets\mathrm{nil}$
+\For{$r=1,\;2,\;\ldots,\;n_{\mathrm{iter}}$}
+  \State Run Algorithm~\ref{alg:dp-secondary}, supplying $\mathcal{A}_k$ as the candidate set at each step $k$; update $\mat{N}^*$ if the result improves on the current best
+  \State For each $i$: set $\mathcal{A}_i$ to $n_a$ normals centred at $\vect{n}_i^*$ with angular spread $2\pi/n_a^r$
+\EndFor
+\State \Return $\mat{N}^*$
+\end{algorithmic}
+\end{algorithm}
