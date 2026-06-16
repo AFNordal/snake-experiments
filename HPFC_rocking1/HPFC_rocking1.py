@@ -1,10 +1,10 @@
 from SimSerpent.control.controllers import HPFCController
 from SimSerpent.simulation import Simulator
 from SimSerpent.control.path import SnakePath
-from SimSerpent.control.path.utils import s_ref_linear
+from SimSerpent.control.path.utils import s_ref_sin
 import json
 import pathlib
-from tqdm import trange  # Loading bar
+from tqdm import tqdm, trange  # Loading bar
 from time import time_ns
 
 import numpy as np
@@ -31,22 +31,23 @@ for c in obstacle_centers:
     obstacles_description["obstacles"].append({"position": c})
 
 # Initialize snake on path
-s0 = path.delta_to_s(0)
-print(s0)
-s_dot = 0.01
-s_ddot = 0.01
+s_ddot = 0.5
 t_settle = 0.2
 
 
-sim_duration = 200.0  # seconds
+sim_duration = 10  # seconds
 dt = simulator_config["timestep"]
 N = int(sim_duration / dt)
 
-S = s_ref_linear(dt, N, s0, t_settle, s_ddot, s_dot)
+
+deltas = s_ref_sin(dt=dt, N=N, t_settle=t_settle, amplitude=0.05, acceleration=s_ddot)
+S = []
+for d in tqdm(deltas):
+    S.append(path.delta_to_s(d))
 
 print(path.curve.length())
 
-pose = path.to_snake_pose(s0)
+pose = path.to_snake_pose(S[0])
 print(pose)
 # dist = 0.0
 # pose[7] += dist
@@ -56,104 +57,43 @@ simulator = Simulator(
     simulator_config,
     snake_description,
     obstacles_description,
-    video_output_path=root_dir / "out.mp4",
+    # video_output_path=root_dir / "out.mp4",
 )
 simulator.set_display_curve(path.curve, z=0)
-# pos_controllers = PIDControllerArray(6000, 0, 20, n=snake_description["n_links"] - 1, derivative_filter_tc=2*dt)
 hpfc_controller = HPFCController(path, f_min=0.1)
 
 
+ncons = []
+times = []
 
-for step in range(N):
+
+steps_per_step = 2
+for step in range(N // steps_per_step):
     # Find reference pose
-    path_param = S[step]
-    # print(path_param, path.s_to_delta(path_param))
-    # pose = path.to_snake_pose(path_param)
-    # Compute and apply control
-    # pos_controllers.set_reference(pose[3:])
+    path_param = S[step*steps_per_step]
     phi = simulator.get_joint_angles()
-    # torques = pos_controllers.tick(phi, dt)
 
     joint_centers = simulator.get_joint_center_coords()
     s, _ = path.curve.closest_point(joint_centers[-1])
     contact_obstacles, contact_links = path.planned_contacts(s)
-    # t0 = time_ns()
     f = np.array(
         [simulator.get_obstacle_contact_force(f"obstacle_{i}") for i in contact_obstacles]
     )
-    # print(", \t".join(f"{i:.2f}" for i in f))
-    err = hpfc_controller._inner_controller.prev_error
+    err = hpfc_controller._inner_propulsion_controller.prev_error
     if err is None:
         err = 0
-    # print(f"{simulator.get_n_contacts()}/{len(contact_obstacles)}\t{np.linalg.norm(err):.3f}\t{path_param:.3f}\t{s:.3f}")
-    torques = hpfc_controller.tick(dt, path_param, s, phi, f)
+    torques = hpfc_controller.tick(dt * steps_per_step, path_param, s, phi, f)
 
-
-    # t1 = time_ns()
-    # print(f"{(t1-t0)*1e-6:.2f} ms")
-
-    # contact_set = set(contact_indices)
-    # for new in contact_set - prev_contacts:
-    #     force_controllers.push_controller(new_reference=1)
-    #     if prev_u_f is not None:
-    #         prev_u_f = np.append(prev_u_f, 0)
-    # for gone in prev_contacts - contact_set:
-    #     force_controllers.pop_controller()
-    #     if prev_u_f is not None:
-    #         prev_u_f = prev_u_f[1:]
-    # prev_contacts = contact_set
-
-    # contact_points = list(path.contact_points[i] for i in contact_indices)
-    # contact_normals_T = block_diag(*list(path.contact_normals[i] for i in contact_indices))
-    # contact_jacobians = np.vstack(
-    #     [simulator.get_contact_jacobian(p, l) for p, l in zip(contact_points, contact_links)]
-    # )
-    # J_N = contact_normals_T @ contact_jacobians
-    # motion_projector = (
-    #     np.eye(J_N.shape[1]) - J_N.T @ np.linalg.inv(J_N @ J_N.T + np.eye(J_N.shape[0])) @ J_N
-    # )
-    # # print(J_N.shape)
-    # contact_forces = np.array(
-    #     [
-    #         np.linalg.norm(simulator.get_obstacle_contact_force(f"obstacle_{i}"))
-    #         for i in contact_indices
-    #     ]
-    # )
-    # sat_hi = np.zeros(len(contact_set), dtype=bool)
-    # sat_lo = contact_forces <= 0
-    # if prev_u_f is not None:
-    #     sat_lo = np.logical_or(sat_lo, prev_u_f < -10)
-    #     sat_hi = np.logical_or(sat_hi, prev_u_f > 10)
-    # u_f = force_controllers.tick(contact_forces, dt, sat_lo, sat_hi)
-    # # u_f = force_controllers.tick(contact_forces, dt)#, sat_lo, sat_hi)
-    # prev_u_f = u_f
-    # print(" ".join(f"{f:.2f}" for f in contact_forces))
-    # print(" ".join(f"{f:.2f}" for f in u_f))
-
-    # force_torques = - J_N.T @ np.maximum(0, u_f)
+    ncons.append(simulator.get_n_contacts())
+    times.append(step*steps_per_step*dt)
     
-    simulator.step(torques)
-    # simulator.step()
-    # while 1:
-    #     pass
+    simulator.step(torques, iterations=steps_per_step)
     if simulator.should_close():
         break
     
-    # if (step % 20) == 0:
-    #     planned_contacts.append(len(path.planned_contacts(path_param)[0]))
-    #     real_contacts.append(simulator.get_n_contacts())
-    # j = simulator.get_contact_jacobian([0,0], 3)
-    # for r in j:
-    #     print(" ".join(list(f"{e:2.1f}" for e in r)))
-    # print()
-hpfc_controller.print_profile()
 simulator.close_window()
 
-# from matplotlib import pyplot as plt
-# import matplotlib
-# matplotlib.use("WebAgg")
-# # plt.plot(errors, label="rms_to_closest")
-# # plt.plot(tau_max, label="tau_max")
-# plt.plot(list(range(len(planned_contacts))), planned_contacts)
-# plt.plot(list(range(len(real_contacts))), real_contacts)
-# plt.show()
+from matplotlib import pyplot as plt
+
+plt.plot(times, ncons)
+plt.show()

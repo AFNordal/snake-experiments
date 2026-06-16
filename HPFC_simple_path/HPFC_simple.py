@@ -107,7 +107,7 @@ for step in range(N):
     # t0 = time_ns()
     f = np.array([simulator.get_obstacle_contact_force(f"obstacle_{i}") for i in contact_obstacles])
     # print(", \t".join(f"{i:.2f}" for i in f))
-    err = hpfc_controller._inner_controller.prev_error
+    err = hpfc_controller._inner_propulsion_controller.prev_error
     if err is None:
         err = 0
     # print(f"{simulator.get_n_contacts()}/{len(contact_obstacles)}\t{np.linalg.norm(err):.3f}\t{path_param:.3f}\t{s:.3f}")
